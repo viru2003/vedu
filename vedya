@@ -1,0 +1,142 @@
+-- Create tables
+CREATE TABLE Suppliers (
+    sid INTEGER PRIMARY KEY,
+    sname VARCHAR(255),
+    address VARCHAR(255)
+);
+
+CREATE TABLE Parts (
+    pid INTEGER PRIMARY KEY,
+    pname VARCHAR(255),
+    color VARCHAR(255)
+);
+
+CREATE TABLE Catalog (
+    sid INTEGER,
+    pid INTEGER,
+    cost DECIMAL(10, 2),
+    PRIMARY KEY (sid, pid),
+    FOREIGN KEY (sid) REFERENCES Suppliers(sid),
+    FOREIGN KEY (pid) REFERENCES Parts(pid)
+);
+
+-- Insert sample data
+INSERT INTO Suppliers VALUES (1, 'Acme Widget Suppliers', '123 Main St');
+INSERT INTO Suppliers VALUES (2, 'Widget World', '456 Oak St');
+INSERT INTO Suppliers VALUES (3, 'Gadget Galaxy', '789 Pine St');
+
+INSERT INTO Parts VALUES (101, 'Widget A', 'Red');
+INSERT INTO Parts VALUES (102, 'Widget B', 'Green');
+INSERT INTO Parts VALUES (103, 'Gadget X', 'Red');
+INSERT INTO Parts VALUES (104, 'Gadget Y', 'Blue');
+
+INSERT INTO Catalog VALUES (1, 101, 10.00);
+INSERT INTO Catalog VALUES (1, 102, 12.00);
+INSERT INTO Catalog VALUES (2, 101, 9.00);
+INSERT INTO Catalog VALUES (2, 103, 15.00);
+INSERT INTO Catalog VALUES (3, 102, 11.00);
+INSERT INTO Catalog VALUES (3, 103, 14.00);
+INSERT INTO Catalog VALUES (3, 104, 18.00);
+
+-- Queries
+
+-- 1. Find the pnames of parts for which there is some supplier.
+SELECT DISTINCT P.pname
+FROM Parts P
+INNER JOIN Catalog C ON P.pid = C.pid;
+
+-- 2. Find the snames of suppliers who supply every part.
+SELECT S.sname
+FROM Suppliers S
+WHERE NOT EXISTS (
+    SELECT P.pid
+    FROM Parts P
+    WHERE NOT EXISTS (
+        SELECT *
+        FROM Catalog C
+        WHERE C.sid = S.sid AND C.pid = P.pid
+    )
+);
+
+-- 3. Find the snames of suppliers who supply every red part.
+SELECT S.sname
+FROM Suppliers S
+WHERE NOT EXISTS (
+    SELECT P.pid
+    FROM Parts P
+    WHERE P.color = 'Red'
+    AND NOT EXISTS (
+        SELECT *
+        FROM Catalog C
+        WHERE C.sid = S.sid AND C.pid = P.pid
+    )
+);
+
+-- 4. Find the pnames of parts supplied by Acme Widget Suppliers and by no one else.
+SELECT P.pname
+FROM Parts P
+INNER JOIN Catalog C ON P.pid = C.pid
+WHERE C.sid = 1
+AND NOT EXISTS (
+    SELECT *
+    FROM Catalog C2
+    WHERE C2.pid = C.pid AND C2.sid != 1
+);
+
+-- 5. Find the sids of suppliers who charge more for some part than the average cost of that part.
+SELECT DISTINCT C.sid
+FROM Catalog C
+WHERE C.cost > (
+    SELECT AVG(C2.cost)
+    FROM Catalog C2
+    WHERE C2.pid = C.pid
+);
+
+-- 6. For each part, find the sname of the supplier who charges the most for that part.
+SELECT P.pname, S.sname
+FROM Parts P
+INNER JOIN Catalog C ON P.pid = C.pid
+INNER JOIN Suppliers S ON C.sid = S.sid
+WHERE C.cost = (
+    SELECT MAX(C2.cost)
+    FROM Catalog C2
+    WHERE C2.pid = C.pid
+);
+
+-- 7. Find the sids of suppliers who supply only red parts.
+SELECT DISTINCT S.sid
+FROM Suppliers S
+WHERE NOT EXISTS (
+    SELECT *
+    FROM Parts P
+    WHERE P.color <> 'Red'
+    AND NOT EXISTS (
+        SELECT *
+        FROM Catalog C
+        WHERE C.sid = S.sid AND C.pid = P.pid
+    )
+);
+
+-- 8. Find the sids of suppliers who supply a red part and a green part.
+SELECT DISTINCT S.sid
+FROM Suppliers S
+WHERE EXISTS (
+    SELECT *
+    FROM Parts P1
+    WHERE P1.color = 'Red'
+    AND EXISTS (
+        SELECT *
+        FROM Catalog C1
+        WHERE C1.sid = S.sid AND C1.pid = P1.pid
+    )
+)
+AND EXISTS (
+    SELECT *
+    FROM Parts P2
+    WHERE P2.color = 'Green'
+    AND EXISTS (
+        SELECT *
+        FROM Catalog C2
+        WHERE C2.sid = S.sid AND C2.pid = P2.pid
+    )
+);
